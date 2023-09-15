@@ -1,11 +1,24 @@
-const { Sequelize } = require('sequelize');
+const sql = require('mssql');
+require('dotenv').config();
 
-module.exports = new Sequelize({
-  dialect: 'mssql',
-  dialectModule: require('tedious'),
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  database: process.env.DB_NAME,
-  username: process.env.DB_USERNAME,
-  password: process.env.DB_PASSWORD,
-});
+const sqlConfig = {
+  server: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT) || 1433,
+  database: process.env.DB_NAME || 'test',
+  user: process.env.DB_USERNAME || 'sa',
+  password: process.env.DB_PASSWORD || '',
+  options: {
+    trustServerCertificate: process.env.DB_TRUST_SERVER_CERTIFICATE === 'true' || true,
+  },
+};
+
+// export connection pool
+
+const createConnection = async () => {
+  const pool = await sql.connect(sqlConfig);
+  return pool;
+};
+
+module.exports = {
+  createConnection,
+};

@@ -1,4 +1,4 @@
-const sequelize = require('../../config/database');
+const sql = require('mssql');
 
 const defineDynamicModel = (table) => {
   return sequelize.define(table, {}, { timestamps: false });

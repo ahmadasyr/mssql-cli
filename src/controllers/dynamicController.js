@@ -6,7 +6,7 @@ function quoteName(s) {
 }
 
 // Select qurey builder
-function selectQuery(table, filters, select, order, limit, offset) {
+function selectQuery({ table, filters, select, order, limit, offset }) {
   // example parameters
   // table = { schema: "dbo", name: "table1" }
   // filters = {
@@ -20,16 +20,19 @@ function selectQuery(table, filters, select, order, limit, offset) {
 
   const builder = ['SELECT'];
 
+  if (limit) {
+    builder.push(`TOP ${limit}`);
+  }
   // if columns are not specified, select all columns
-  if (select.length === 0) {
+  if (!select) {
     builder.push('*');
   } else {
     // example output ["SELECT", "column1", "column2", "column3"]
-    builder.push(select.map((s) => quoteName(s)).join(', '));
+    builder.push(select?.map((s) => quoteName(s)).join(', '));
   }
 
   // add FROM clause
-  builder.push(`FROM ${quoteName(table.schema)}.${quoteName(table.name)}`);
+  builder.push(`FROM ${quoteName('dbo')}.${quoteName(table)}`);
   // add WHERE clause using whereFragment function
   builder.push(whereFragment(filters));
 
@@ -38,10 +41,6 @@ function selectQuery(table, filters, select, order, limit, offset) {
       'ORDER BY ' +
         order.map((o) => quoteName(o.identifier) + (o.dir ? ` ${o.dir}` : '')).join(', ')
     );
-  }
-
-  if (limit) {
-    builder.push(`LIMIT ${limit}`);
   }
 
   if (offset) {
@@ -94,17 +93,17 @@ function updateQuery(table, vals, filters) {
 }
 
 // Delete query builder
-function deleteQuery(table, filters) {
+function deleteQuery({ table, filters }) {
   // example parameters
   // table = { schema: "dbo", name: "table1" }
   // filters = {
   //   column1: { op: { literal: '=', sql: '=' }, value: 'value1' },
   //   column2: { op: { literal: '=', sql: '=' }, value: 'value2' },
   // };
-
+  console.log(filters);
   const builder = ['DELETE FROM'];
   // set the table name
-  builder.push(`${quoteName(table.schema)}.${quoteName(table.name)}`);
+  builder.push(`${quoteName('dbo')}.${quoteName(table)}`);
   // add WHERE clause using whereFragment function
   builder.push(whereFragment(filters));
 
@@ -145,19 +144,18 @@ function functionQuery(routine) {
 
 // Where clause builder
 function whereFragment(filters) {
-  // example parameters
-  // filters = {
-  //   column1: { op: { literal: '=', sql: '=' }, value: 'value1' },
-  //   column2: { op: { literal: '=', sql: '=' }, value: 'value2' },
-  // };
+  if (filters.length > 0) {
+    const whereClause = filters
+      .map((filter) => {
+        const [column, condition] = filter.split('=');
+        const columnName = column.split('.')[0];
+        const operator = '=';
+        const value = condition.split('.')[1];
+        return `${quoteName(columnName)} ${operator} ?`;
+      })
+      .join(' AND ');
 
-  if (Object.keys(filters).length > 0) {
-    return (
-      'WHERE ' +
-      Object.entries(filters)
-        .map(([key, value]) => `${quoteName(key)} ${value.op.literal} ?`)
-        .join(' AND ')
-    );
+    return `WHERE ${whereClause}`;
   } else {
     return '';
   }
