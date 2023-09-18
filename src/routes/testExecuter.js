@@ -60,29 +60,81 @@ router.get('/:table', async (req, res) => {
   }
 });
 
+const conditionsGeneratior = (filters) => {
+  if (Array.isArray(filters)) {
+    filters.map((filter) => {
+      // Use regular expressions to split the filter string
+      const matches = filter.match(/([^=]+)=([^=.]+)\.([^=]+)/);
+
+      if (!matches || matches.length !== 4) {
+        throw new Error('Invalid filter format: ' + filter);
+      }
+      const column = matches[1];
+      const operator = matches[2];
+      const value = matches[3];
+      return { column, operator, value };
+    });
+  } else {
+    const matches = filters.match(/([^=]+)=([^=.]+)\.([^=]+)/);
+
+    if (!matches || matches.length !== 4) {
+      throw new Error('Invalid filter format: ' + filters);
+    }
+    const column = matches[1];
+    const operator = matches[2];
+    const value = matches[3];
+    return { column, operator, value };
+  }
+};
+
 router.delete('/:table', async (req, res) => {
-  // Get the table name from the route
-  const table = req.params.table;
+  // Execute the query with parameterized placeholders
+  try {
+    const table = req.params.table;
+    const filters = req.query.filters;
 
-  // Get the query parameters
-  const filters = req.query.filters || '';
+    if (!table) {
+      res.status(400).json({ error: 'Table name is required' });
+      return;
+    }
+    if (!filters) {
+      res.status(400).json({ error: 'Filters are required' });
+      return;
+    }
 
-  // Build the query
-  const query = deleteQuery({
-    table,
-    filters,
-  });
+    // Convert the filters into an array of objects
+    const filterConditions = conditionsGeneratior(filters);
+    // Build the query using the filter conditions
+    const query = deleteQuery({
+      table,
+      filters: filterConditions,
+    });
+    // Create a parameter object based on the filter conditions
+    const params = {};
+    // if filterConditions is an array
+    if (Array.isArray(filterConditions)) {
+      filterConditions.forEach((condition, index) => {
+        params[`@${condition.column}${index}`] = condition.value;
+      });
+    } else {
+      params[`@${filterConditions.column}`] = filterConditions.value;
+    }
+    const pool = await createConnection();
+    const request = pool.request();
 
-  // Execute the query
-  console.log(query);
-  // try {
-  //   const result = await createConnection().then((pool) => {
-  //     return pool.request().query(query);
-  //   });
-  //   res.status(200).json(result.recordset);
-  // } catch (error) {
-  //   res.status(error.number).json({ error: error.originalError.info });
-  // }
+    // Add parameters to the request
+    Object.entries(params).forEach(([key, value]) => {
+      request.input(key, value);
+    });
+    const result = await request.query(query);
+    if (!result) {
+      res.status(400).json({ error: 'Delete failed' });
+      return;
+    }
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(error.number).json({ error: error.message });
+  }
 });
 
 // router.post('/:table', async (req, res) => {

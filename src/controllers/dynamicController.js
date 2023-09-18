@@ -100,7 +100,6 @@ function deleteQuery({ table, filters }) {
   //   column1: { op: { literal: '=', sql: '=' }, value: 'value1' },
   //   column2: { op: { literal: '=', sql: '=' }, value: 'value2' },
   // };
-  console.log(filters);
   const builder = ['DELETE FROM'];
   // set the table name
   builder.push(`${quoteName('dbo')}.${quoteName(table)}`);
@@ -142,20 +141,59 @@ function functionQuery(routine) {
   return builder.join(' ');
 }
 
+const operatorCase = (value) => {
+  let operator;
+  switch (value) {
+    case 'eq':
+      operator = '=';
+      break;
+    case 'neq':
+      operator = '<>';
+      break;
+    case 'gt':
+      operator = '>';
+      break;
+    case 'lt':
+      operator = '<';
+      break;
+    case 'gte':
+      operator = '>=';
+      break;
+    case 'lte':
+      operator = '<=';
+      break;
+    case 'like':
+      operator = 'LIKE';
+      break;
+    case 'nlike':
+      operator = 'NOT LIKE';
+      break;
+    case 'in':
+      operator = 'IN';
+      break;
+    case 'nin':
+      operator = 'NOT IN';
+      break;
+    default:
+      throw new Error('Invalid operator: ' + filter.operator);
+  }
+  return operator;
+};
+
 // Where clause builder
 function whereFragment(filters) {
-  if (filters.length > 0) {
+  if (Array.isArray(filters)) {
     const whereClause = filters
       .map((filter) => {
-        const [column, condition] = filter.split('=');
-        const columnName = column.split('.')[0];
-        const operator = '=';
-        const value = condition.split('.')[1];
-        return `${quoteName(columnName)} ${operator} ?`;
+        const operator = operatorCase(filter.operator);
+        return `${quoteName(filter.column)} ${operator} ? @${filter.column}`;
       })
       .join(' AND ');
 
     return `WHERE ${whereClause}`;
+  } else if (filters) {
+    const operator = operatorCase(filters.operator);
+    return `WHERE ${quoteName(filters.column)} ${operator} @${filters.column}`;
   } else {
     return '';
   }
