@@ -63,6 +63,7 @@ router.get('/:table', async (req, res) => {
 const conditionsGeneratior = (filters) => {
   if (Array.isArray(filters)) {
     filters.map((filter) => {
+      // expected format: name=eq.project1
       // Use regular expressions to split the filter string
       const matches = filter.match(/([^=]+)=([^=.]+)\.([^=]+)/);
 
@@ -78,6 +79,7 @@ const conditionsGeneratior = (filters) => {
     const matches = filters.match(/([^=]+)=([^=.]+)\.([^=]+)/);
 
     if (!matches || matches.length !== 4) {
+      // throw error with code 400
       throw new Error('Invalid filter format: ' + filters);
     }
     const column = matches[1];
@@ -92,7 +94,6 @@ router.delete('/:table', async (req, res) => {
   try {
     const table = req.params.table;
     const filters = req.query.filters;
-
     if (!table) {
       res.status(400).json({ error: 'Table name is required' });
       return;
@@ -126,6 +127,7 @@ router.delete('/:table', async (req, res) => {
     Object.entries(params).forEach(([key, value]) => {
       request.input(key, value);
     });
+    console.log({query, params})
     const result = await request.query(query);
     if (!result) {
       res.status(400).json({ error: 'Delete failed' });
@@ -133,7 +135,7 @@ router.delete('/:table', async (req, res) => {
     }
     res.status(200).json(result);
   } catch (error) {
-    res.status(error.number).json({ error: error.message });
+    res.status(error?.number || 500).json({ error: error?.message || 'Unknown error' });
   }
 });
 

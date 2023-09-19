@@ -2,10 +2,10 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 const testExecuter = require('./src/routes/testExecuter');
+app.set('timeout', 600000);
 
 app.use(cors());
 app.use(express.json());
-
 // Use dynamic routes
 app.use('/api', testExecuter);
 
